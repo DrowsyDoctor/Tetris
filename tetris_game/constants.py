@@ -41,16 +41,14 @@ BLACK = (0, 0, 0)
 GRAY = (128, 128, 128)
 LINE_COLOR = (52, 52, 52)
 
-#Tetromino blocks
 TETROMINOS = {
-    'I': {"shape": [(1,0), (-2,0), (0,0), (-1,0)], "color": LIGHT_BLUE},
-    'O': {"shape": [(0,0), (1, 0), (0, -1), (1, -1)], "color": YELLOW},
-    'T': {"shape": [(0, 0), (-1, 0), (1, 0), (0, -1)], "color": PURPLE},
-    'S': {"shape": [(0, 0), (-1,0), (0, -1), (1, -1)], "color": GREEN},
-    'Z': {"shape": [(0, 0), (1, 0), (0, -1), (-1, -1)], "color": RED},
-    'J': {"shape": [(0, 0), (0, -1), (0, 1), (-1, 1)], "color": DARK_BLUE},
-    'L': {"shape": [(0, 0), (0, -1), (0, 1), (1, 1)], "color": ORANGE}
+    'I': {"shape": [(0, 1), (-1, 1), (1, 1), (2, 1)], "color": LIGHT_BLUE},     # I piece - horizontal spawn
+    'O': {"shape": [(0, 0), (1, 0), (0, 1), (1, 1)], "color": YELLOW},          # O piece - 2x2 square
+    'T': {"shape": [(1, 0), (0, 0), (2, 0), (1, -1)], "color": PURPLE},          # T piece - pivot at center
+    'Z': {"shape": [(1, 0), (0, 0), (1, 1), (2, 1)], "color": RED},           # S piece - pivot at center
+    'S': {"shape": [(1, 0), (2, 0), (1, 1), (0, 1)], "color": GREEN},             # Z piece - pivot at center
+    'J': {"shape": [(0, 0), (-1, -1), (-1, 0), (1, 0)], "color": DARK_BLUE},       # J piece - pivot at center
+    'L': {"shape": [(0, 0), (-1, 0), (1, 0), (1, -1)], "color": ORANGE}           # L piece - pivot at center
 }
-
 
 SCORE_DATA = {1: 40, 2: 100, 3: 300, 4: 1200}

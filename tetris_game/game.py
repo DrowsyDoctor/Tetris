@@ -1,6 +1,7 @@
+# Updated game.py with Super Rotation System (SRS)
+
 from constants import *
 from random import choice
-
 from timer import Timer
 
 class Game:
@@ -21,14 +22,12 @@ class Game:
         self.line_surface.set_colorkey((0, 255, 0))
         self.line_surface.set_alpha(120)  # Set transparency for grid lines
 
-# Example block at position (0, 0)
         self.field_data = [[0 for x in range(COLUMNS)] for y in range (ROWS)]  # Initialize the field data
         self.tetromino = Tetromino(
-            choice(list(TETROMINOS.keys())),
+            get_next_shape(),
             self.sprites, 
             self.create_tetromino,
             self.field_data)  # Example tetromino, can be changed to any shape
-
 
         self.down_speed = UPDATE_START_SPEED
         self.down_speed_increment = self.down_speed * 0.3
@@ -83,7 +82,6 @@ class Game:
         self.surface.blit(self.line_surface, (0, 0))
 
     def input(self):
-
         keys  = pygame.key.get_pressed()
 
         if not self.timers["horizontal move"].active:
@@ -96,9 +94,13 @@ class Game:
 
         if not self.timers["rotate"].active:
             if keys[pygame.K_UP]:
-                # Rotate the tetromino (not implemented in this example)
                 self.tetromino.rotate()
                 self.timers["rotate"].activate()
+
+        if not self.timers["rotate"].active:#COCK
+            if keys[pygame.K_z]:
+                self.tetromino.rotate_counter()
+                self.timers["rotate"].activate()        
 
         if not self.down_pressed and keys[pygame.K_DOWN]:
             self.down_pressed = True
@@ -107,7 +109,6 @@ class Game:
         if self.down_pressed and not keys[pygame.K_DOWN]:
             self.down_pressed = False
             self.timers["vertical move"].duration = self.down_speed
-
 
     def check_finished_rows(self):
         delete_rows = []
@@ -132,7 +133,6 @@ class Game:
             self.calculate_score(len(delete_rows))
 
     def run(self):
-
         self.input()
         self.timer_update()
         self.sprites.update()
@@ -147,14 +147,17 @@ class Game:
 
 class Tetromino(pygame.sprite.Sprite):
     def __init__(self, shape, group, create_tetromino, field_data):
-
-        # setup 
+        # Setup 
         self.shape = shape
         self.block_positions = TETROMINOS[shape]['shape']
         self.color = TETROMINOS[shape]['color']
         self.create_tetromino = create_tetromino
-        self.field_data = field_data    
-        # create blocks
+        self.field_data = field_data
+        
+        # SRS rotation state (0, 1, 2, 3 representing 0°, 90°, 180°, 270°)
+        self.rotation_state = 0
+        
+        # Create blocks
         self.blocks = [Block(group, pos, self.color) for pos in self.block_positions]
 
     def collision_horizontal_check(self, blocks, amount):
@@ -174,49 +177,182 @@ class Tetromino(pygame.sprite.Sprite):
                 self.field_data[int(block.pos.y)][int(block.pos.x)] = block
             self.create_tetromino()
 
-
     def move_horizontal(self, amount):
         if not self.collision_horizontal_check(self.blocks, amount):
             for block in self.blocks:
                 block.pos.x += amount
 
-    def rotate(self):
-        if self.shape != "O":
-            pivot_pos = self.blocks[0].pos  # Use the second block as the pivot
-            new_positions = [block.rotate(pivot_pos) for block in self.blocks]
-            for pos in new_positions:
-                if pos.x < 0 or pos.x >= COLUMNS:
-                    return 
-                
-                if pos.y > ROWS:
-                    return
-                
-                if self.field_data[int(pos.y)][int(pos.x)]:
-                    return
+    def check_collision_at_positions(self, positions):
+        """Check if any of the given positions would cause a collision"""
+        for pos in positions:
+            # Check boundaries
+            if pos.x < 0 or pos.x >= COLUMNS or pos.y >= ROWS:
+                return True
+            
+            # Check collision with existing blocks (only if y >= 0)
+            if pos.y >= 0 and self.field_data[int(pos.y)][int(pos.x)]:
+                return True
+        
+        return False
 
-            for i, block in enumerate(self.blocks):
-                block.pos = new_positions[i]
+    def check_collision_at_positions(self, positions):
+        """Check if any of the given positions would cause a collision"""
+        for pos in positions:
+            # Check boundaries
+            if pos.x < 0 or pos.x >= COLUMNS or pos.y >= ROWS:
+                return True
+            
+            # Check collision with existing blocks (only if y >= 0)
+            if pos.y >= 0 and self.field_data[int(pos.y)][int(pos.x)]:
+                return True
+        
+        return False
+
+    def rotate(self):
+        """Implement Super Rotation System (SRS) rotation with wall kicks"""
+        if self.shape == "O":  # O piece doesn't rotate
+            return
+            
+        # Calculate the pivot point (center of rotation)
+        if self.shape == "I":
+            # I piece uses a different pivot calculation
+            pivot_pos = self.blocks[0].pos
+        else:
+            # Other pieces use the first block as pivot
+            pivot_pos = self.blocks[0].pos
+        
+        # Calculate new rotation state
+        new_rotation_state = (self.rotation_state + 1) % 4
+        
+        # Get the basic rotated positions
+        new_positions = [block.rotate(pivot_pos) for block in self.blocks]
+        
+        # Get wall kick data for this piece and rotation
+        kick_data = self.get_wall_kick_data(self.rotation_state, new_rotation_state)
+        
+        # Try each wall kick offset
+        for kick_offset in kick_data:
+            test_positions = [pos + pygame.Vector2(kick_offset) for pos in new_positions]
+            
+            # If this position is valid, apply the rotation
+            if not self.check_collision_at_positions(test_positions):
+                for i, block in enumerate(self.blocks):
+                    block.pos = test_positions[i]
+                self.rotation_state = new_rotation_state
+                return
+        
+        # If no wall kick worked, rotation fails (do nothing)
+
+    def rotate_counter(self):
+        """Implement Super Rotation System (SRS) rotation with wall kicks"""
+        if self.shape == "O":  # O piece doesn't rotate
+            return
+            
+        # Calculate the pivot point (center of rotation)
+        if self.shape == "I":
+            # I piece uses a different pivot calculation
+            pivot_pos = self.blocks[0].pos
+        else:
+            # Other pieces use the first block as pivot
+            pivot_pos = self.blocks[0].pos
+        
+        # Calculate new rotation state
+        new_rotation_state = (self.rotation_state - 1) % 4
+        
+        # Get the basic rotated positions
+        new_positions = [block.rotate_counter(pivot_pos) for block in self.blocks]
+        
+        # Get wall kick data for this piece and rotation
+        kick_data = self.get_wall_kick_data(self.rotation_state, new_rotation_state)
+        
+        # Try each wall kick offset
+        for kick_offset in kick_data:
+            test_positions = [pos + pygame.Vector2(kick_offset) for pos in new_positions]
+            
+            # If this position is valid, apply the rotation
+            if not self.check_collision_at_positions(test_positions):
+                for i, block in enumerate(self.blocks):
+                    block.pos = test_positions[i]
+                self.rotation_state = new_rotation_state
+                return
+        
+        # If no wall kick worked, rotation fails (do nothing)
+
+    def get_wall_kick_data(self, from_state, to_state):
+        """Get wall kick offsets for SRS system"""
+        
+        # I piece has special wall kick data
+        if self.shape == "I":
+            return self.get_i_piece_wall_kicks(from_state, to_state)
+        
+        # Standard wall kick data for J, L, S, T, Z pieces
+        wall_kick_data = {
+            (0, 1): [(0, 0), (-1, 0), (-1, 1), (0, -2), (-1, -2)],  # 0->R
+            (1, 2): [(0, 0), (1, 0), (1, -1), (0, 2), (1, 2)],      # R->2
+            (2, 3): [(0, 0), (1, 0), (1, 1), (0, -2), (1, -2)],     # 2->L
+            (3, 0): [(0, 0), (-1, 0), (-1, -1), (0, 2), (-1, 2)],   # L->0
+            (1, 0): [(0, 0), (1, 0), (1, 1), (0, -2), (1, -2)],     # R->0
+            (2, 1): [(0, 0), (-1, 0), (-1, -1), (0, 2), (-1, 2)],   # 2->R
+            (3, 2): [(0, 0), (-1, 0), (-1, 1), (0, -2), (-1, -2)],  # L->2
+            (0, 3): [(0, 0), (1, 0), (1, -1), (0, 2), (1, 2)]       # 0->L
+        }
+        
+        return wall_kick_data.get((from_state, to_state), [(0, 0)])
+
+    def get_i_piece_wall_kicks(self, from_state, to_state):
+        """Special wall kick data for I piece"""
+        i_wall_kick_data = {
+            (0, 1): [(0, 0), (-2, 0), (1, 0), (-2, -1), (1, 2)],    # 0->R
+            (1, 2): [(0, 0), (-1, 0), (2, 0), (-1, 2), (2, -1)],    # R->2
+            (2, 3): [(0, 0), (2, 0), (-1, 0), (2, 1), (-1, -2)],    # 2->L
+            (3, 0): [(0, 0), (1, 0), (-2, 0), (1, -2), (-2, 1)],    # L->0
+            (1, 0): [(0, 0), (2, 0), (-1, 0), (2, 1), (-1, -2)],    # R->0
+            (2, 1): [(0, 0), (1, 0), (-2, 0), (1, -2), (-2, 1)],    # 2->R
+            (3, 2): [(0, 0), (-2, 0), (1, 0), (-2, -1), (1, 2)],    # L->2
+            (0, 3): [(0, 0), (-1, 0), (2, 0), (-1, 2), (2, -1)]     # 0->L
+        }
+        
+        return i_wall_kick_data.get((from_state, to_state), [(0, 0)])
 
 
 class Block(pygame.sprite.Sprite):
     def __init__(self, group, pos, color):
-        
-        # general
+        # General
         super().__init__(group)
         self.image = pygame.Surface((CELL_SIZE,CELL_SIZE))
         self.image.fill(color)
         
-        # position
+        # Position
         self.pos = pygame.Vector2(pos) + OFFSET
         self.rect = self.image.get_rect(topleft = (self.pos *CELL_SIZE))
 
     def rotate(self, pivot_pos):
-        return pivot_pos + (self.pos - pivot_pos).rotate(90)
+        """Rotate the block 90 degrees clockwise around the pivot using SRS method"""
+        # Calculate relative position from pivot
+        relative_pos = self.pos - pivot_pos
+        
+        # Apply SRS rotation matrix for 90° clockwise: (x, y) -> (y, -x)
+        rotated_relative = pygame.Vector2(-relative_pos.y, relative_pos.x)
+        
+        # Return new absolute position
+        return pivot_pos + rotated_relative
+    
+    def rotate_counter(self, pivot_pos):
+        """Rotate the block 90 degrees counterclockwise around the pivot using SRS method"""
+        # Calculate relative position from pivot
+        relative_pos = self.pos - pivot_pos
+        
+        # Apply SRS rotation matrix for -90° clockwise: (x, y) -> (y, -x)
+        rotated_relative = pygame.Vector2(relative_pos.y, -relative_pos.x)
+        
+        print("counterclockwise rotation")
+
+        # Return new absolute position
+        return pivot_pos + rotated_relative
+    
 
     def update(self):
-        """
-        Updates the position of the block based on its pos attribute.
-        """
+        """Updates the position of the block based on its pos attribute."""
         self.rect.topleft = self.pos* CELL_SIZE
 
     def horizontal_collide(self, x, field_data):
